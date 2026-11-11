@@ -147,6 +147,9 @@ export async function startBot() {
 
       if (message.isSelf) {
         const isAdmin = config.admins.has(OWN_ID);
+        console.log("ADMIN IDS:", [...config.admins]);
+        console.log("OWN ID:", OWN_ID);
+        console.log("IS ADMIN:", isAdmin);
         const cmd = text.toLowerCase();
 
         // Bật/tắt trạng thái bận, chỉ admin.
