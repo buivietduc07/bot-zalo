@@ -1,0 +1,5 @@
+{
+  "name":"zalo-personal-bot","version":"1.0.0","private":true,"type":"module",
+  "scripts":{"start":"node index.js","check":"node --check index.js && node --check src/bot.js && node --check src/commands/index.js"},
+  "dependencies":{"dotenv":"^16.4.5","sharp":"^0.33.5","zca-js":"^2.2.0"}
+}

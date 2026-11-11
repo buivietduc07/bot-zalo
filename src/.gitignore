@@ -1,0 +1,10 @@
+node_modules/
+.env
+.env.*
+!.env.example
+qr.png
+font-settings.json
+busy-settings.json
+cookies.json
+credentials.json
+*.session
