@@ -95,8 +95,6 @@ export async function startBot() {
   }
 
   api.listener.on('message', async (message) => {
-    const isGroup = message.type === ThreadType.Group;
-    const isPrivate = message.type === ThreadType.User;
     try {
       // Cho phép nhận tin nhắn riêng và nhóm
       if (
@@ -104,6 +102,7 @@ export async function startBot() {
         message.type !== ThreadType.Group
       ) return;
       const isGroup = message.type === ThreadType.Group;
+      const isPrivate = message.type === ThreadType.User;
       const data = message.data ?? {};
       const msgId = String(data.msgId ?? '');
       if (data.content && typeof data.content === 'object' && data.content.action === 'rtf') return;
@@ -128,23 +127,31 @@ export async function startBot() {
         return result;
       };
 
-      if (!message.isSelf) {
-        // Chỉ tự động trả lời khi admin bật chế độ bận.
-        if (fontSettings.busy) {
-          const now = Date.now();
-          const last = autoReplyCooldown.get(senderId) ?? 0;
-          if (now - last >= AUTO_REPLY_DELAY) {
-            autoReplyCooldown.set(senderId, now);
-            try {
-              await reply(BUSY_TEXT, stylesFor(BUSY_TEXT, { italic: true, force: true }));
-              console.log('Đã báo bận tới:', senderId);
-            } catch (error) {
-              autoReplyCooldown.delete(senderId);
-              console.error('Lỗi gửi thông báo bận:', error);
-            }
-          }
+      // Chỉ trả lời tự động trong inbox. Lệnh trong nhóm vẫn hoạt động.
+      if (!message.isSelf && isPrivate && fontSettings.busy) {
+        // Không trả lời lệnh bot hoặc tin trống.
+        if (text.startsWith('/') || text.startsWith('.')) return;
+
+        const now = Date.now();
+        const last = autoReplyCooldown.get(senderId) ?? 0;
+        const remaining = AUTO_REPLY_DELAY - (now - last);
+        if (remaining > 0) {
+          console.log('BUSY SKIP: còn cooldown', senderId, Math.ceil(remaining / 1000), 'giây');
           return;
         }
+        // Đặt cooldown trước khi gửi để tránh trùng khi có nhiều tin đến cùng lúc.
+        autoReplyCooldown.set(senderId, now);
+        try {
+          const result = await reply(
+            BUSY_TEXT,
+            stylesFor(BUSY_TEXT, { italic: true, force: true })
+          );
+          console.log('BUSY SEND RESULT:', senderId, result);
+        } catch (error) {
+          autoReplyCooldown.delete(senderId);
+          console.error('BUSY SEND ERROR:', senderId, error);
+        }
+        return;
       }
 
       if (message.isSelf) {
@@ -155,7 +162,7 @@ export async function startBot() {
         const cmd = text.toLowerCase();
 
         // Bật/tắt trạng thái bận, chỉ admin.
-        if (cmd === '.busy' || cmd === '.busy on' || cmd === '.busy off' || cmd === '.busy status') {
+        if (cmd === '.busy' || cmd === '.busy on' || cmd === '.busy off' || cmd === '.busy status' || cmd === '.busy reset') {
           if (!isAdmin) {
             console.log('Không có quyền admin, kiểm tra ADMIN_IDS trong .env');
             return;
@@ -164,7 +171,13 @@ export async function startBot() {
             console.log('Chế độ bận:', fontSettings.busy ? 'ĐANG BẬT' : 'ĐANG TẮT');
             return;
           }
-          fontSettings.busy = cmd === '.busy off' ? false : true;
+          if (cmd === '.busy reset') {
+            autoReplyCooldown.clear();
+            console.log('Đã xóa cooldown trả lời bận để thử lại.');
+            return;
+          }
+          fontSettings.busy = cmd !== '.busy off';
+          if (fontSettings.busy) autoReplyCooldown.clear();
           await saveFont();
           console.log('Chế độ bận:', fontSettings.busy ? 'ĐANG BẬT' : 'ĐANG TẮT');
           return;
@@ -186,7 +199,7 @@ export async function startBot() {
           const body = match[1].trim();
           const count = Number(match[2]);
           if (!body || body.length > 200 || !Number.isInteger(count) || count < 1 || count > 1000) {
-            console.log('Nội dung tối đa 200 ký tự; số lần từ 1 đến 5.');
+            console.log('');
             return;
           }
           if (spamTasks.has(threadId) || Date.now() - lastRepeatAt < 60000) {
@@ -206,7 +219,7 @@ export async function startBot() {
                 console.error('Dừng gửi do lỗi:', error);
                 break;
               }
-              if (i < count - 1) await new Promise(resolve => setTimeout(resolve, 1000));
+              if (i < count - 1) await new Promise(resolve => setTimeout(resolve, 250));
             }
           } finally {
             if (spamTasks.get(threadId) === task) spamTasks.delete(threadId);
