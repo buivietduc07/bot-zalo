@@ -95,6 +95,8 @@ export async function startBot() {
   }
 
   api.listener.on('message', async (message) => {
+    const isGroup = message.type === ThreadType.Group;
+    const isPrivate = message.type === ThreadType.User;
     try {
       // Cho phép nhận tin nhắn riêng và nhóm
       if (
@@ -264,7 +266,7 @@ export async function startBot() {
 
       if (!canRespond(`${threadId}:${senderId}`, config.cooldown)) return;
       if (await handleCommand({ api, message, text, senderId, isGroup: isGroup, reply })) return;
-      if (message.isSelf || !config.auto) return;
+      if (message.isSelf || isGroup || !config.auto) return;
       const lower = text.toLowerCase();
       if (['xin chào', 'hello', 'hi'].includes(lower)) await reply('Chào bạn! Gõ /help để xem lệnh.');
       else if (lower === 'bot') await reply('Bot đang hoạt động. Gõ /menu.');
