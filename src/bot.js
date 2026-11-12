@@ -4,6 +4,7 @@ import fs from 'node:fs/promises';
 import { config } from './config.js';
 import { handleCommand } from './commands/index.js';
 import { canRespond } from './services/state.js';
+import { startWebPanel } from './web-panel.js';
 
 const FONT_FILE = './font-settings.json';
 const OWN_ID = '713588087980736558';
@@ -58,6 +59,7 @@ export async function startBot() {
   const api = await zalo.loginQR();
   console.log('Đăng nhập thành công. Đang nghe tin nhắn riêng...');
 
+  const panel = startWebPanel({api, settings:fontSettings, saveSettings:saveFont, botId:OWN_ID});
   const processing = new Set();
   const processedOriginals = new Set();
   const generatedIds = new Set();
@@ -96,6 +98,7 @@ export async function startBot() {
 
   api.listener.on('message', async (message) => {
     try {
+      panel.onMessage(message);
       // Cho phép nhận tin nhắn riêng và nhóm
       if (
         message.type !== ThreadType.User &&
@@ -198,8 +201,8 @@ export async function startBot() {
           if (!match) { console.log('Cú pháp: .spam <nội dung> <số lần 1-5>'); return; }
           const body = match[1].trim();
           const count = Number(match[2]);
-          if (!body || body.length > 200 || !Number.isInteger(count) || count < 1 || count > 1000) {
-            console.log('');
+          if (!body || body.length > 200 || !Number.isInteger(count) || count < 1 || count > 5) {
+            console.log('Nội dung tối đa 200 ký tự; số lần từ 1 đến 5.');
             return;
           }
           if (spamTasks.has(threadId) || Date.now() - lastRepeatAt < 60000) {
@@ -219,7 +222,7 @@ export async function startBot() {
                 console.error('Dừng gửi do lỗi:', error);
                 break;
               }
-              if (i < count - 1) await new Promise(resolve => setTimeout(resolve, 250));
+              if (i < count - 1) await new Promise(resolve => setTimeout(resolve, 1000));
             }
           } finally {
             if (spamTasks.get(threadId) === task) spamTasks.delete(threadId);
