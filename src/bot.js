@@ -58,7 +58,12 @@ export async function startBot() {
   console.log('Đang đăng nhập Zalo bằng QR...');
   const api = await zalo.loginQR();
   console.log('Đăng nhập thành công. Đang nghe tin nhắn riêng...');
-
+const panel = startWebPanel({
+  api,
+  settings: fontSettings,
+  saveSettings: saveFont,
+  botId: OWN_ID
+});
   const panel = startWebPanel({api, settings:fontSettings, saveSettings:saveFont, botId:OWN_ID});
   const processing = new Set();
   const processedOriginals = new Set();
